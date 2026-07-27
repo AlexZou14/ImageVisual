@@ -225,6 +225,25 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .roi-fields label > span { margin: 0 0 3px 3px; color: var(--muted); font-size: 8px; }
 .roi-fields input { width: 100%; height: 29px; padding: 0 15px 0 6px; border: 1px solid var(--line); border-radius: 6px; font-size: 9px; }
 .roi-fields small { position: absolute; right: 5px; bottom: 8px; color: var(--muted); font-size: 8px; }
+.origin-export-panel { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.origin-export-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.origin-export-heading > div { display: flex; flex-direction: column; }
+.origin-export-heading strong { font-size: 10px; }
+.origin-export-heading > div span { margin-top: 3px; color: var(--muted); font-size: 8px; }
+.origin-file-name { max-width: 118px; overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.origin-style-controls { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 9px; margin-top: 11px; }
+.origin-style-controls label { display: flex; flex-direction: column; gap: 5px; }
+.origin-style-controls label > span { color: var(--muted); font-size: 8px; }
+.origin-style-controls label > span b { color: var(--ink); font-weight: 650; }
+.origin-color-control > div { display: flex; align-items: center; gap: 5px; }
+.origin-color-control input[type="color"] { width: 31px; height: 29px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: white; cursor: pointer; }
+.origin-color-control code { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 8px; }
+.origin-width-control input { width: 100%; accent-color: var(--accent); }
+.origin-line-preview { height: 22px; margin: 8px 0; display: flex; align-items: center; overflow: hidden; border-radius: 5px; background: var(--paper); }
+.origin-line-preview span { width: 100%; border-top-style: solid; }
+.origin-save-button { width: 100%; min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--dark); border-radius: 7px; color: white; background: var(--dark); font-size: 9px; font-weight: 650; cursor: pointer; }
+.origin-save-button:hover:not(:disabled) { background: #273832; }
+.origin-save-button:disabled { opacity: .5; cursor: wait; }
 .detail-list { padding-top: 14px; display: flex; flex-direction: column; gap: 13px; }
 .detail-item > div:first-child { justify-content: space-between; margin-bottom: 5px; }
 .detail-item strong { font-size: 10px; }

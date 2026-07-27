@@ -41,11 +41,15 @@ type SavedConfig = {
   roi: Roi;
   detailZoom: number;
   gridColumns: number;
+  originBoxColor?: string;
+  originBoxLineWidth?: number;
 };
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i;
 const DEFAULT_ROI: Roi = { x: 0.16, y: 0.16, width: 0.3, height: 0.34 };
 const DEFAULT_VIEW: ViewState = { zoom: 1, panX: 0, panY: 0 };
+const DEFAULT_ORIGIN_BOX_COLOR = "#ff3b30";
+const DEFAULT_ORIGIN_BOX_LINE_WIDTH = 6;
 const STORAGE_KEY = "imagevisual.project.v1";
 const DB_NAME = "imagevisual-local";
 
@@ -115,6 +119,58 @@ async function cropImage(url: string, roi: Roi): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("Unable to encode crop"))),
+      "image/png",
+    );
+  });
+}
+
+async function annotateOriginalImage(
+  url: string,
+  roi: Roi,
+  color: string,
+  requestedLineWidth: number,
+): Promise<Blob> {
+  const image = new Image();
+  image.src = url;
+  await image.decode();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas is unavailable");
+  context.drawImage(image, 0, 0);
+
+  const lineWidth = clamp(
+    Math.round(requestedLineWidth),
+    1,
+    Math.max(1, Math.min(image.naturalWidth, image.naturalHeight)),
+  );
+  const halfLine = lineWidth / 2;
+  const rawLeft = clamp(roi.x, 0, 1) * image.naturalWidth;
+  const rawTop = clamp(roi.y, 0, 1) * image.naturalHeight;
+  const rawRight = clamp(roi.x + roi.width, 0, 1) * image.naturalWidth;
+  const rawBottom = clamp(roi.y + roi.height, 0, 1) * image.naturalHeight;
+  const left = rawLeft <= 0 ? halfLine : rawLeft;
+  const top = rawTop <= 0 ? halfLine : rawTop;
+  const right = rawRight >= image.naturalWidth ? image.naturalWidth - halfLine : rawRight;
+  const bottom = rawBottom >= image.naturalHeight ? image.naturalHeight - halfLine : rawBottom;
+
+  context.save();
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.lineJoin = "miter";
+  context.strokeRect(
+    left,
+    top,
+    Math.max(1, right - left),
+    Math.max(1, bottom - top),
+  );
+  context.restore();
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("Unable to encode annotation"))),
       "image/png",
     );
   });
@@ -505,6 +561,11 @@ export default function Home() {
   const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [cropBusy, setCropBusy] = useState(false);
+  const [originExportBusy, setOriginExportBusy] = useState(false);
+  const [originBoxColor, setOriginBoxColor] = useState(DEFAULT_ORIGIN_BOX_COLOR);
+  const [originBoxLineWidth, setOriginBoxLineWidth] = useState(
+    DEFAULT_ORIGIN_BOX_LINE_WIDTH,
+  );
 
   const currentItem = dataset[currentIndex];
   const visibleMethods = methods.filter((method) => method.visible);
@@ -534,8 +595,19 @@ export default function Home() {
       roi,
       detailZoom,
       gridColumns,
+      originBoxColor,
+      originBoxLineWidth,
     }),
-    [datasetName, methods, currentIndex, roi, detailZoom, gridColumns],
+    [
+      datasetName,
+      methods,
+      currentIndex,
+      roi,
+      detailZoom,
+      gridColumns,
+      originBoxColor,
+      originBoxLineWidth,
+    ],
   );
 
   useEffect(() => {
@@ -686,6 +758,10 @@ export default function Home() {
       setRoi(savedConfig.roi || DEFAULT_ROI);
       setDetailZoom(savedConfig.detailZoom || 1);
       setGridColumns(savedConfig.gridColumns || 2);
+      setOriginBoxColor(savedConfig.originBoxColor || DEFAULT_ORIGIN_BOX_COLOR);
+      setOriginBoxLineWidth(
+        savedConfig.originBoxLineWidth || DEFAULT_ORIGIN_BOX_LINE_WIDTH,
+      );
       setToast(`项目已恢复，共 ${restoredMethods.length} 个方法`);
     } catch {
       setToast("无法自动恢复，请重新选择数据集文件夹");
@@ -775,6 +851,39 @@ export default function Home() {
       }
     } finally {
       setCropBusy(false);
+    }
+  };
+
+  const exportAnnotatedOriginal = async () => {
+    if (!currentItem) return;
+    setOriginExportBusy(true);
+    try {
+      const pickerAvailable = Boolean(
+        (window as typeof window & { showDirectoryPicker?: unknown }).showDirectoryPicker,
+      );
+      const targetDirectory = pickerAvailable ? await pickDirectory() : undefined;
+      if (pickerAvailable && !targetDirectory) return;
+
+      const blob = await annotateOriginalImage(
+        currentItem.url,
+        roi,
+        originBoxColor,
+        originBoxLineWidth,
+      );
+      const outputName = `${safeFilePart(stripExtension(currentItem.name))}_origin.png`;
+      if (targetDirectory) {
+        await writeBlobToDirectory(targetDirectory, outputName, blob);
+        setToast(`已保存带选定框的原图：${outputName}`);
+      } else {
+        downloadBlob(outputName, blob);
+        setToast(`已生成带选定框的原图：${outputName}`);
+      }
+    } catch (error) {
+      if ((error as DOMException).name !== "AbortError") {
+        setToast("原图标注保存失败，请检查图片格式和文件夹权限");
+      }
+    } finally {
+      setOriginExportBusy(false);
     }
   };
 
@@ -1006,6 +1115,60 @@ export default function Home() {
                 </label>
               ))}
             </div>
+
+            <section className="origin-export-panel" aria-labelledby="origin-export-title">
+              <div className="origin-export-heading">
+                <div>
+                  <strong id="origin-export-title">原图选定框</strong>
+                  <span>导出完整原图与当前 ROI</span>
+                </div>
+                <span className="origin-file-name">
+                  {currentItem ? `${safeFilePart(stripExtension(currentItem.name))}_origin.png` : ""}
+                </span>
+              </div>
+              <div className="origin-style-controls">
+                <label className="origin-color-control">
+                  <span>线条颜色</span>
+                  <div>
+                    <input
+                      type="color"
+                      value={originBoxColor}
+                      onChange={(event) => setOriginBoxColor(event.target.value)}
+                      aria-label="原图选定框颜色"
+                    />
+                    <code>{originBoxColor.toUpperCase()}</code>
+                  </div>
+                </label>
+                <label className="origin-width-control">
+                  <span>线条粗细 <b>{originBoxLineWidth}px</b></span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="32"
+                    step="1"
+                    value={originBoxLineWidth}
+                    onChange={(event) => setOriginBoxLineWidth(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+              <div className="origin-line-preview" aria-label="选定框线条预览">
+                <span
+                  style={{
+                    borderTopColor: originBoxColor,
+                    borderTopWidth: Math.min(originBoxLineWidth, 12),
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="origin-save-button"
+                onClick={exportAnnotatedOriginal}
+                disabled={originExportBusy}
+              >
+                <Icon name="download" />
+                {originExportBusy ? "正在生成…" : "保存带选定框的原图"}
+              </button>
+            </section>
 
             <div className="detail-list">
               {panels.map((panel) => (
