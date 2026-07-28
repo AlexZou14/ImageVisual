@@ -79,6 +79,17 @@ function safeFilePart(value: string) {
   return cleaned || "image";
 }
 
+function comparisonOutputName(
+  baseName: string,
+  panelName: string,
+  panelCount: number,
+  suffix: "crop" | "origin",
+) {
+  return panelCount === 1
+    ? `${baseName}_${suffix}.png`
+    : `${baseName}_${safeFilePart(panelName)}_${suffix}.png`;
+}
+
 async function cropImage(url: string, roi: Roi): Promise<Blob> {
   const image = new Image();
   image.src = url;
@@ -828,10 +839,12 @@ export default function Home() {
       const baseName = safeFilePart(stripExtension(currentItem.name));
       const crops = await Promise.all(
         availablePanels.map(async (panel) => ({
-          name:
-            availablePanels.length === 1
-              ? `${baseName}_crop.png`
-              : `${baseName}_${safeFilePart(panel.name)}_crop.png`,
+          name: comparisonOutputName(
+            baseName,
+            panel.name,
+            availablePanels.length,
+            "crop",
+          ),
           blob: await cropImage(panel.url, roi),
         })),
       );
@@ -854,8 +867,13 @@ export default function Home() {
     }
   };
 
-  const exportAnnotatedOriginal = async () => {
+  const exportAnnotatedComparisons = async () => {
     if (!currentItem) return;
+    const availablePanels = panels.filter(
+      (panel): panel is typeof panel & { url: string } => Boolean(panel.url),
+    );
+    if (!availablePanels.length) return setToast("当前比较组没有可保存的图片");
+
     setOriginExportBusy(true);
     try {
       const pickerAvailable = Boolean(
@@ -864,19 +882,32 @@ export default function Home() {
       const targetDirectory = pickerAvailable ? await pickDirectory() : undefined;
       if (pickerAvailable && !targetDirectory) return;
 
-      const blob = await annotateOriginalImage(
-        currentItem.url,
-        roi,
-        originBoxColor,
-        originBoxLineWidth,
+      const baseName = safeFilePart(stripExtension(currentItem.name));
+      const annotatedImages = await Promise.all(
+        availablePanels.map(async (panel) => ({
+          name: comparisonOutputName(
+            baseName,
+            panel.name,
+            availablePanels.length,
+            "origin",
+          ),
+          blob: await annotateOriginalImage(
+            panel.url,
+            roi,
+            originBoxColor,
+            originBoxLineWidth,
+          ),
+        })),
       );
-      const outputName = `${safeFilePart(stripExtension(currentItem.name))}_origin.png`;
+
       if (targetDirectory) {
-        await writeBlobToDirectory(targetDirectory, outputName, blob);
-        setToast(`已保存带选定框的原图：${outputName}`);
+        for (const image of annotatedImages) {
+          await writeBlobToDirectory(targetDirectory, image.name, image.blob);
+        }
+        setToast(`已保存 ${annotatedImages.length} 张带选定框的比较图`);
       } else {
-        downloadBlob(outputName, blob);
-        setToast(`已生成带选定框的原图：${outputName}`);
+        annotatedImages.forEach((image) => downloadBlob(image.name, image.blob));
+        setToast(`已生成 ${annotatedImages.length} 张带选定框的比较图`);
       }
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
@@ -1119,11 +1150,13 @@ export default function Home() {
             <section className="origin-export-panel" aria-labelledby="origin-export-title">
               <div className="origin-export-heading">
                 <div>
-                  <strong id="origin-export-title">原图选定框</strong>
-                  <span>导出完整原图与当前 ROI</span>
+                  <strong id="origin-export-title">比较图选定框</strong>
+                  <span>
+                    当前 {panels.filter((panel) => panel.url).length} 张，与裁剪结果一一对应
+                  </span>
                 </div>
                 <span className="origin-file-name">
-                  {currentItem ? `${safeFilePart(stripExtension(currentItem.name))}_origin.png` : ""}
+                  *_origin.png
                 </span>
               </div>
               <div className="origin-style-controls">
@@ -1134,7 +1167,7 @@ export default function Home() {
                       type="color"
                       value={originBoxColor}
                       onChange={(event) => setOriginBoxColor(event.target.value)}
-                      aria-label="原图选定框颜色"
+                      aria-label="比较图选定框颜色"
                     />
                     <code>{originBoxColor.toUpperCase()}</code>
                   </div>
@@ -1162,11 +1195,11 @@ export default function Home() {
               <button
                 type="button"
                 className="origin-save-button"
-                onClick={exportAnnotatedOriginal}
+                onClick={exportAnnotatedComparisons}
                 disabled={originExportBusy}
               >
                 <Icon name="download" />
-                {originExportBusy ? "正在生成…" : "保存带选定框的原图"}
+                {originExportBusy ? "正在生成…" : "保存全部带选定框的比较图"}
               </button>
             </section>
 
