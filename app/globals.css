@@ -191,9 +191,11 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .image-frame.tool-pan:active { cursor: grabbing; }
 .image-layer { position: absolute; transform-origin: center; user-select: none; will-change: transform; }
 .image-layer > img { width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none; }
-.roi-box { position: absolute; border: 2px solid var(--accent); box-shadow: 0 0 0 9999px rgb(0 0 0 / 10%); cursor: move; }
-.roi-label { position: absolute; left: -2px; top: -19px; padding: 2px 5px; background: var(--accent); color: white; font-size: 8px; letter-spacing: .05em; }
-.roi-handle { position: absolute; width: 10px; height: 10px; padding: 0; border: 2px solid var(--accent); border-radius: 50%; background: white; }
+.roi-box { position: absolute; border: 2px solid var(--roi-color, var(--accent)); box-shadow: 0 0 0 9999px rgb(0 0 0 / 10%); cursor: move; }
+.roi-box.is-inactive { border-style: dashed; box-shadow: none; opacity: .78; }
+.roi-box.is-inactive .roi-label { opacity: .9; }
+.roi-label { position: absolute; left: -2px; top: -19px; padding: 2px 5px; background: var(--roi-color, var(--accent)); color: white; font-size: 8px; letter-spacing: .05em; white-space: nowrap; }
+.roi-handle { position: absolute; width: 10px; height: 10px; padding: 0; border: 2px solid var(--roi-color, var(--accent)); border-radius: 50%; background: white; }
 .handle-nw { left: -6px; top: -6px; cursor: nwse-resize; }
 .handle-ne { right: -6px; top: -6px; cursor: nesw-resize; }
 .handle-sw { left: -6px; bottom: -6px; cursor: nesw-resize; }
@@ -220,6 +222,19 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 .zoom-control label { font-size: 10px; font-weight: 650; }
 .zoom-control strong { color: var(--accent-dark); font-size: 11px; }
 .zoom-control input { width: 100%; accent-color: var(--accent); }
+.roi-manager { padding: 0 0 12px; }
+.roi-manager-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.roi-manager-heading strong { font-size: 10px; }
+.roi-manager-heading span { color: var(--muted); font-size: 8px; }
+.roi-tabs { display: flex; flex-wrap: wrap; gap: 5px; }
+.roi-tabs button { min-height: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); background: white; font-size: 9px; cursor: pointer; }
+.roi-tabs button.active { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-soft); }
+.roi-color-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; box-shadow: 0 0 0 1px rgb(22 33 29 / 12%); }
+.roi-manager-actions { margin-top: 7px; display: flex; gap: 5px; }
+.roi-manager-actions button { flex: 1; min-height: 29px; border: 1px dashed var(--line-strong); border-radius: 6px; background: var(--paper); font-size: 9px; cursor: pointer; }
+.roi-manager-actions button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
+.roi-manager-actions button.delete { border-style: solid; color: var(--muted); background: white; }
+.roi-manager-actions button:disabled { opacity: .4; cursor: not-allowed; }
 .roi-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .roi-fields label { position: relative; display: flex; flex-direction: column; }
 .roi-fields label > span { margin: 0 0 3px 3px; color: var(--muted); font-size: 8px; }

@@ -29,7 +29,7 @@ type MethodResult = {
   totalFiles: number;
 };
 
-type Roi = { x: number; y: number; width: number; height: number };
+type Roi = { x: number; y: number; width: number; height: number; color?: string };
 type ViewState = { zoom: number; panX: number; panY: number };
 type Tool = "roi" | "pan";
 
@@ -39,6 +39,8 @@ type SavedConfig = {
   methods: Array<Pick<MethodResult, "id" | "name" | "folderName" | "handleKey" | "visible">>;
   currentIndex: number;
   roi: Roi;
+  rois?: Roi[];
+  activeRoiIndex?: number;
   detailZoom: number;
   gridColumns: number;
   originBoxColor?: string;
@@ -46,9 +48,24 @@ type SavedConfig = {
 };
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i;
-const DEFAULT_ROI: Roi = { x: 0.16, y: 0.16, width: 0.3, height: 0.34 };
+const ROI_COLORS = [
+  "#ff3b30",
+  "#2f80ed",
+  "#17a673",
+  "#a855f7",
+  "#f59e0b",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+];
+const DEFAULT_ROI: Roi = {
+  x: 0.16,
+  y: 0.16,
+  width: 0.3,
+  height: 0.34,
+  color: ROI_COLORS[0],
+};
 const DEFAULT_VIEW: ViewState = { zoom: 1, panX: 0, panY: 0 };
-const DEFAULT_ORIGIN_BOX_COLOR = "#ff3b30";
 const DEFAULT_ORIGIN_BOX_LINE_WIDTH = 6;
 const STORAGE_KEY = "imagevisual.project.v1";
 const DB_NAME = "imagevisual-local";
@@ -79,11 +96,15 @@ function safeFilePart(value: string) {
   return cleaned || "image";
 }
 
+function getRoiColor(roi: Roi, index: number) {
+  return roi.color || ROI_COLORS[index % ROI_COLORS.length];
+}
+
 function comparisonOutputName(
   baseName: string,
   panelName: string,
   panelCount: number,
-  suffix: "crop" | "origin",
+  suffix: string,
 ) {
   return panelCount === 1
     ? `${baseName}_${suffix}.png`
@@ -137,8 +158,7 @@ async function cropImage(url: string, roi: Roi): Promise<Blob> {
 
 async function annotateOriginalImage(
   url: string,
-  roi: Roi,
-  color: string,
+  rois: Roi[],
   requestedLineWidth: number,
 ): Promise<Blob> {
   const image = new Image();
@@ -158,26 +178,47 @@ async function annotateOriginalImage(
     Math.max(1, Math.min(image.naturalWidth, image.naturalHeight)),
   );
   const halfLine = lineWidth / 2;
-  const rawLeft = clamp(roi.x, 0, 1) * image.naturalWidth;
-  const rawTop = clamp(roi.y, 0, 1) * image.naturalHeight;
-  const rawRight = clamp(roi.x + roi.width, 0, 1) * image.naturalWidth;
-  const rawBottom = clamp(roi.y + roi.height, 0, 1) * image.naturalHeight;
-  const left = rawLeft <= 0 ? halfLine : rawLeft;
-  const top = rawTop <= 0 ? halfLine : rawTop;
-  const right = rawRight >= image.naturalWidth ? image.naturalWidth - halfLine : rawRight;
-  const bottom = rawBottom >= image.naturalHeight ? image.naturalHeight - halfLine : rawBottom;
+  rois.forEach((roi, index) => {
+    const color = getRoiColor(roi, index);
+    const rawLeft = clamp(roi.x, 0, 1) * image.naturalWidth;
+    const rawTop = clamp(roi.y, 0, 1) * image.naturalHeight;
+    const rawRight = clamp(roi.x + roi.width, 0, 1) * image.naturalWidth;
+    const rawBottom = clamp(roi.y + roi.height, 0, 1) * image.naturalHeight;
+    const left = rawLeft <= 0 ? halfLine : rawLeft;
+    const top = rawTop <= 0 ? halfLine : rawTop;
+    const right = rawRight >= image.naturalWidth ? image.naturalWidth - halfLine : rawRight;
+    const bottom = rawBottom >= image.naturalHeight ? image.naturalHeight - halfLine : rawBottom;
 
-  context.save();
-  context.strokeStyle = color;
-  context.lineWidth = lineWidth;
-  context.lineJoin = "miter";
-  context.strokeRect(
-    left,
-    top,
-    Math.max(1, right - left),
-    Math.max(1, bottom - top),
-  );
-  context.restore();
+    context.save();
+    context.strokeStyle = color;
+    context.lineWidth = lineWidth;
+    context.lineJoin = "miter";
+    context.strokeRect(
+      left,
+      top,
+      Math.max(1, right - left),
+      Math.max(1, bottom - top),
+    );
+
+    const label = `${index + 1}`;
+    const fontSize = clamp(
+      Math.round(lineWidth * 3),
+      14,
+      Math.max(14, Math.round(Math.min(image.naturalWidth, image.naturalHeight) * 0.05)),
+    );
+    const padding = Math.max(3, Math.round(fontSize * 0.28));
+    context.font = `600 ${fontSize}px ui-sans-serif, sans-serif`;
+    const labelWidth = Math.ceil(context.measureText(label).width + padding * 2);
+    const labelHeight = fontSize + padding * 2;
+    const labelX = clamp(left, 0, Math.max(0, image.naturalWidth - labelWidth));
+    const labelY = clamp(top, 0, Math.max(0, image.naturalHeight - labelHeight));
+    context.fillStyle = color;
+    context.fillRect(labelX, labelY, labelWidth, labelHeight);
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "top";
+    context.fillText(label, labelX + padding, labelY + padding);
+    context.restore();
+  });
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -354,23 +395,28 @@ function ImageViewport({
   name,
   url,
   view,
-  roi,
+  rois,
+  activeRoiIndex,
   tool,
   onViewChange,
   onRoiChange,
+  onActiveRoiChange,
 }: {
   name: string;
   url?: string;
   view: ViewState;
-  roi: Roi;
+  rois: Roi[];
+  activeRoiIndex: number;
   tool: Tool;
   onViewChange: (view: ViewState) => void;
-  onRoiChange: (roi: Roi) => void;
+  onRoiChange: (index: number, roi: Roi) => void;
+  onActiveRoiChange: (index: number) => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<
     | {
         mode: "draw" | "move" | "resize" | "pan";
+        roiIndex: number;
         handle?: string;
         startPoint: { x: number; y: number };
         startClient: { x: number; y: number };
@@ -423,19 +469,39 @@ function ImageViewport({
     const target = event.target as HTMLElement;
     const action = target.closest<HTMLElement>("[data-roi-action]")?.dataset.roiAction;
     const handle = target.closest<HTMLElement>("[data-roi-handle]")?.dataset.roiHandle;
+    const targetRoiIndex = Number(
+      target.closest<HTMLElement>("[data-roi-index]")?.dataset.roiIndex,
+    );
+    const interactionRoiIndex = Number.isInteger(targetRoiIndex)
+      ? targetRoiIndex
+      : activeRoiIndex;
+    const interactionRoi = rois[interactionRoiIndex] || rois[activeRoiIndex];
+    if (!interactionRoi) return;
     const point = toImagePoint(event.clientX, event.clientY);
     let mode: "draw" | "move" | "resize" | "pan" = tool === "pan" ? "pan" : "draw";
     if (tool === "roi" && handle) mode = "resize";
     else if (tool === "roi" && action === "move") mode = "move";
+    if (mode !== "pan" && interactionRoiIndex !== activeRoiIndex) {
+      onActiveRoiChange(interactionRoiIndex);
+    }
     dragRef.current = {
       mode,
+      roiIndex: interactionRoiIndex,
       handle,
       startPoint: point,
       startClient: { x: event.clientX, y: event.clientY },
-      startRoi: { ...roi },
+      startRoi: { ...interactionRoi },
       startView: { ...view },
     };
-    if (mode === "draw") onRoiChange({ x: point.x, y: point.y, width: 0.01, height: 0.01 });
+    if (mode === "draw") {
+      onRoiChange(interactionRoiIndex, {
+        x: point.x,
+        y: point.y,
+        width: 0.01,
+        height: 0.01,
+        color: interactionRoi.color,
+      });
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -454,14 +520,15 @@ function ImageViewport({
     const dx = point.x - drag.startPoint.x;
     const dy = point.y - drag.startPoint.y;
     if (drag.mode === "draw") {
-      onRoiChange({
+      onRoiChange(drag.roiIndex, {
         x: Math.min(drag.startPoint.x, point.x),
         y: Math.min(drag.startPoint.y, point.y),
         width: Math.max(0.01, Math.abs(point.x - drag.startPoint.x)),
         height: Math.max(0.01, Math.abs(point.y - drag.startPoint.y)),
+        color: drag.startRoi.color,
       });
     } else if (drag.mode === "move") {
-      onRoiChange({
+      onRoiChange(drag.roiIndex, {
         ...drag.startRoi,
         x: clamp(drag.startRoi.x + dx, 0, 1 - drag.startRoi.width),
         y: clamp(drag.startRoi.y + dy, 0, 1 - drag.startRoi.height),
@@ -475,7 +542,13 @@ function ImageViewport({
       if (drag.handle?.includes("e")) right = clamp(right + dx, left + 0.02, 1);
       if (drag.handle?.includes("n")) top = clamp(drag.startRoi.y + dy, 0, bottom - 0.02);
       if (drag.handle?.includes("s")) bottom = clamp(bottom + dy, top + 0.02, 1);
-      onRoiChange({ x: left, y: top, width: right - left, height: bottom - top });
+      onRoiChange(drag.roiIndex, {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+        color: drag.startRoi.color,
+      });
     }
   };
 
@@ -521,27 +594,38 @@ function ImageViewport({
                 setNatural({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })
               }
             />
-            <div
-              className="roi-box"
-              data-roi-action="move"
-              style={{
-                left: `${roi.x * 100}%`,
-                top: `${roi.y * 100}%`,
-                width: `${roi.width * 100}%`,
-                height: `${roi.height * 100}%`,
-              }}
-            >
-              <span className="roi-label">ROI</span>
-              {(["nw", "ne", "sw", "se"] as const).map((handle) => (
-                <button
-                  type="button"
-                  aria-label={`调整选区 ${handle}`}
-                  className={`roi-handle handle-${handle}`}
-                  data-roi-handle={handle}
-                  key={handle}
-                />
-              ))}
-            </div>
+            {rois.map((roi, index) => {
+              const active = index === activeRoiIndex;
+              return (
+                <div
+                  className={`roi-box ${active ? "is-active" : "is-inactive"}`}
+                  data-roi-action="move"
+                  data-roi-index={index}
+                  key={index}
+                  style={{
+                    left: `${roi.x * 100}%`,
+                    top: `${roi.y * 100}%`,
+                    width: `${roi.width * 100}%`,
+                    height: `${roi.height * 100}%`,
+                    zIndex: active ? 2 : 1,
+                    "--roi-color": getRoiColor(roi, index),
+                  } as React.CSSProperties}
+                >
+                  <span className="roi-label">ROI {index + 1}</span>
+                  {active &&
+                    (["nw", "ne", "sw", "se"] as const).map((handle) => (
+                      <button
+                        type="button"
+                        aria-label={`调整选区 ${index + 1} ${handle}`}
+                        className={`roi-handle handle-${handle}`}
+                        data-roi-handle={handle}
+                        data-roi-index={index}
+                        key={handle}
+                      />
+                    ))}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="missing-image">
@@ -561,7 +645,8 @@ export default function Home() {
   const [datasetName, setDatasetName] = useState("");
   const [methods, setMethods] = useState<MethodResult[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [roi, setRoi] = useState<Roi>(DEFAULT_ROI);
+  const [rois, setRois] = useState<Roi[]>([{ ...DEFAULT_ROI }]);
+  const [activeRoiIndex, setActiveRoiIndex] = useState(0);
   const [detailZoom, setDetailZoom] = useState(1);
   const [tool, setTool] = useState<Tool>("roi");
   const [gridColumns, setGridColumns] = useState(2);
@@ -573,7 +658,6 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [cropBusy, setCropBusy] = useState(false);
   const [originExportBusy, setOriginExportBusy] = useState(false);
-  const [originBoxColor, setOriginBoxColor] = useState(DEFAULT_ORIGIN_BOX_COLOR);
   const [originBoxLineWidth, setOriginBoxLineWidth] = useState(
     DEFAULT_ORIGIN_BOX_LINE_WIDTH,
   );
@@ -591,6 +675,21 @@ export default function Home() {
       ]
     : [];
 
+  const roi = rois[activeRoiIndex] || rois[0] || DEFAULT_ROI;
+  const updateRoiAtIndex = (index: number, nextRoi: Roi) => {
+    setRois((current) =>
+      current.map((region, regionIndex) => (regionIndex === index ? nextRoi : region)),
+    );
+  };
+  const setRoi = (update: Roi | ((current: Roi) => Roi)) => {
+    setRois((current) =>
+      current.map((region, regionIndex) => {
+        if (regionIndex !== activeRoiIndex) return region;
+        return typeof update === "function" ? update(region) : update;
+      }),
+    );
+  };
+
   const activeConfig = useMemo<SavedConfig>(
     () => ({
       version: 1,
@@ -604,9 +703,11 @@ export default function Home() {
       })),
       currentIndex,
       roi,
+      rois,
+      activeRoiIndex,
       detailZoom,
       gridColumns,
-      originBoxColor,
+      originBoxColor: getRoiColor(roi, activeRoiIndex),
       originBoxLineWidth,
     }),
     [
@@ -614,9 +715,10 @@ export default function Home() {
       methods,
       currentIndex,
       roi,
+      rois,
+      activeRoiIndex,
       detailZoom,
       gridColumns,
-      originBoxColor,
       originBoxLineWidth,
     ],
   );
@@ -682,7 +784,8 @@ export default function Home() {
     setDatasetName(name);
     setMethods([]);
     setCurrentIndex(0);
-    setRoi(DEFAULT_ROI);
+    setRois([{ ...DEFAULT_ROI }]);
+    setActiveRoiIndex(0);
     setSharedView(DEFAULT_VIEW);
     setLocalViews({});
     if (handle) await saveHandle("dataset", handle);
@@ -766,10 +869,23 @@ export default function Home() {
       setDatasetName(savedConfig.datasetName || datasetHandle.name);
       setMethods(restoredMethods);
       setCurrentIndex(clamp(savedConfig.currentIndex, 0, Math.max(0, items.length - 1)));
-      setRoi(savedConfig.roi || DEFAULT_ROI);
+      const restoredRois = savedConfig.rois?.length
+        ? savedConfig.rois
+        : [savedConfig.roi || DEFAULT_ROI];
+      const coloredRois = restoredRois.map((region, index) => ({
+        ...region,
+        color:
+          region.color ||
+          (index === 0 && savedConfig.originBoxColor
+            ? savedConfig.originBoxColor
+            : ROI_COLORS[index % ROI_COLORS.length]),
+      }));
+      setRois(coloredRois);
+      setActiveRoiIndex(
+        clamp(savedConfig.activeRoiIndex || 0, 0, coloredRois.length - 1),
+      );
       setDetailZoom(savedConfig.detailZoom || 1);
       setGridColumns(savedConfig.gridColumns || 2);
-      setOriginBoxColor(savedConfig.originBoxColor || DEFAULT_ORIGIN_BOX_COLOR);
       setOriginBoxLineWidth(
         savedConfig.originBoxLineWidth || DEFAULT_ORIGIN_BOX_LINE_WIDTH,
       );
@@ -811,6 +927,29 @@ export default function Home() {
     });
   };
 
+  const addRoi = () => {
+    const offset = 0.04 + (rois.length % 4) * 0.025;
+    const newRoi: Roi = {
+      x: clamp(roi.x + offset, 0, 1 - roi.width),
+      y: clamp(roi.y + offset, 0, 1 - roi.height),
+      width: roi.width,
+      height: roi.height,
+      color: ROI_COLORS[rois.length % ROI_COLORS.length],
+    };
+    setRois((current) => [...current, newRoi]);
+    setActiveRoiIndex(rois.length);
+  };
+
+  const deleteActiveRoi = () => {
+    if (rois.length === 1) {
+      setToast("至少需要保留一个选区");
+      return;
+    }
+    const nextLength = rois.length - 1;
+    setRois((current) => current.filter((_, index) => index !== activeRoiIndex));
+    setActiveRoiIndex(Math.min(activeRoiIndex, nextLength - 1));
+  };
+
   const exportConfig = () => {
     if (!dataset.length) return;
     const blob = new Blob([JSON.stringify(activeConfig, null, 2)], { type: "application/json" });
@@ -838,15 +977,17 @@ export default function Home() {
 
       const baseName = safeFilePart(stripExtension(currentItem.name));
       const crops = await Promise.all(
-        availablePanels.map(async (panel) => ({
-          name: comparisonOutputName(
-            baseName,
-            panel.name,
-            availablePanels.length,
-            "crop",
-          ),
-          blob: await cropImage(panel.url, roi),
-        })),
+        availablePanels.flatMap((panel) =>
+          rois.map(async (region, regionIndex) => ({
+            name: comparisonOutputName(
+              baseName,
+              panel.name,
+              availablePanels.length,
+              `crop${regionIndex + 1}`,
+            ),
+            blob: await cropImage(panel.url, region),
+          })),
+        ),
       );
 
       if (targetDirectory) {
@@ -893,8 +1034,7 @@ export default function Home() {
           ),
           blob: await annotateOriginalImage(
             panel.url,
-            roi,
-            originBoxColor,
+            rois,
             originBoxLineWidth,
           ),
         })),
@@ -1077,11 +1217,13 @@ export default function Home() {
                     key={panel.id}
                     name={panel.name}
                     url={panel.url}
-                    roi={roi}
+                    rois={rois}
+                    activeRoiIndex={activeRoiIndex}
                     tool={tool}
                     view={syncView ? sharedView : localViews[panel.id] || sharedView}
                     onViewChange={(view) => setPanelView(panel.id, view)}
-                    onRoiChange={setRoi}
+                    onRoiChange={updateRoiAtIndex}
+                    onActiveRoiChange={setActiveRoiIndex}
                   />
                 ))}
               </div>
@@ -1108,7 +1250,7 @@ export default function Home() {
             <div className="detail-header">
               <div>
                 <p className="section-label">细节对比</p>
-                <span>共享选区 · 实时更新</span>
+                <span>{rois.length} 个共享选区 · 实时更新</span>
               </div>
               <div className="detail-header-actions">
                 <span className="live-dot">LIVE</span>
@@ -1118,7 +1260,7 @@ export default function Home() {
                   onClick={exportCrops}
                   disabled={cropBusy}
                 >
-                  <Icon name="download" /> {cropBusy ? "正在裁剪…" : "保存裁剪"}
+                  <Icon name="download" /> {cropBusy ? "正在裁剪…" : "保存全部裁剪"}
                 </button>
               </div>
             </div>
@@ -1126,6 +1268,42 @@ export default function Home() {
             <div className="zoom-control">
               <div><label htmlFor="detail-zoom">细节放大</label><strong>{detailZoom}×</strong></div>
               <input id="detail-zoom" type="range" min="1" max="4" step="0.5" value={detailZoom} onChange={(event) => setDetailZoom(Number(event.target.value))} />
+            </div>
+
+            <div className="roi-manager">
+              <div className="roi-manager-heading">
+                <strong>选区管理</strong>
+                <span>当前：选区 {activeRoiIndex + 1}</span>
+              </div>
+              <div className="roi-tabs" aria-label="选择需要编辑的选区">
+                {rois.map((_, index) => (
+                  <button
+                    type="button"
+                    className={index === activeRoiIndex ? "active" : ""}
+                    aria-pressed={index === activeRoiIndex}
+                    onClick={() => setActiveRoiIndex(index)}
+                    key={index}
+                  >
+                    <span
+                      className="roi-color-dot"
+                      style={{ backgroundColor: getRoiColor(rois[index], index) }}
+                      aria-hidden="true"
+                    />
+                    选区 {index + 1}
+                  </button>
+                ))}
+              </div>
+              <div className="roi-manager-actions">
+                <button type="button" onClick={addRoi}>＋ 添加选区</button>
+                <button
+                  type="button"
+                  className="delete"
+                  onClick={deleteActiveRoi}
+                  disabled={rois.length === 1}
+                >
+                  删除当前
+                </button>
+              </div>
             </div>
 
             <div className="roi-fields">
@@ -1152,7 +1330,7 @@ export default function Home() {
                 <div>
                   <strong id="origin-export-title">比较图选定框</strong>
                   <span>
-                    当前 {panels.filter((panel) => panel.url).length} 张，与裁剪结果一一对应
+                    当前 {panels.filter((panel) => panel.url).length} 张、{rois.length} 个编号选区
                   </span>
                 </div>
                 <span className="origin-file-name">
@@ -1161,15 +1339,17 @@ export default function Home() {
               </div>
               <div className="origin-style-controls">
                 <label className="origin-color-control">
-                  <span>线条颜色</span>
+                  <span>当前选区颜色</span>
                   <div>
                     <input
                       type="color"
-                      value={originBoxColor}
-                      onChange={(event) => setOriginBoxColor(event.target.value)}
-                      aria-label="比较图选定框颜色"
+                      value={getRoiColor(roi, activeRoiIndex)}
+                      onChange={(event) =>
+                        setRoi((current) => ({ ...current, color: event.target.value }))
+                      }
+                      aria-label={`选区 ${activeRoiIndex + 1} 的颜色`}
                     />
-                    <code>{originBoxColor.toUpperCase()}</code>
+                    <code>{getRoiColor(roi, activeRoiIndex).toUpperCase()}</code>
                   </div>
                 </label>
                 <label className="origin-width-control">
@@ -1187,7 +1367,7 @@ export default function Home() {
               <div className="origin-line-preview" aria-label="选定框线条预览">
                 <span
                   style={{
-                    borderTopColor: originBoxColor,
+                    borderTopColor: getRoiColor(roi, activeRoiIndex),
                     borderTopWidth: Math.min(originBoxLineWidth, 12),
                   }}
                 />

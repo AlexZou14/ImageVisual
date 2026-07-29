@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     width="720" height="470" viewBox="0 0 720 470"
+     role="img" aria-labelledby="title desc">
+  <title id="title">Seven-minus metric radar chart</title>
+  <desc id="desc">Radar chart comparing six methods on DICM, LIME, MEF, NPE, and VV. Values are seven minus the original metric, shown on a shared zero-to-four scale.</desc>
+  <metadata>
+    Formula: transformed value = 7 - original value.
+    Axis order from top, counterclockwise: DICM, LIME, MEF, NPE, VV.
+    Shared radial scale: 0 to 4.
+  </metadata>
+
+  <g id="grid" inkscape:groupmode="layer" inkscape:label="Grid" fill="none" stroke="#d1d5db" stroke-width="1">
+    <circle id="ring-1" cx="270" cy="235" r="44"/>
+    <circle id="ring-2" cx="270" cy="235" r="88"/>
+    <circle id="ring-3" cx="270" cy="235" r="132"/>
+    <circle id="ring-4" cx="270" cy="235" r="176"/>
+  </g>
+
+  <g id="axes" inkscape:groupmode="layer" inkscape:label="Axes" fill="none" stroke="#9ca3af" stroke-width="1" opacity="0.55">
+    <line id="axis-dicm" x1="270" y1="235" x2="270.00" y2="59.00"/>
+    <line id="axis-lime" x1="270" y1="235" x2="102.61" y2="180.61"/>
+    <line id="axis-mef" x1="270" y1="235" x2="166.55" y2="377.39"/>
+    <line id="axis-npe" x1="270" y1="235" x2="373.45" y2="377.39"/>
+    <line id="axis-vv" x1="270" y1="235" x2="437.39" y2="180.61"/>
+  </g>
+
+  <g id="series" inkscape:groupmode="layer" inkscape:label="Data series" stroke-linejoin="round">
+    <g id="series-quadprior" inkscape:label="Quadprior" stroke="#e76f51" fill="#e76f51" stroke-width="1.7">
+      <polygon id="area-quadprior" points="270.00,110.92 174.59,204.00 227.84,293.02 343.45,336.09 424.83,184.69" fill-opacity="0.10"/>
+      <g id="points-quadprior">
+        <circle cx="270.00" cy="110.92" r="2.4"/><circle cx="174.59" cy="204.00" r="2.4"/>
+        <circle cx="227.84" cy="293.02" r="2.4"/><circle cx="343.45" cy="336.09" r="2.4"/>
+        <circle cx="424.83" cy="184.69" r="2.4"/>
+      </g>
+    </g>
+
+    <g id="series-retinexformer" inkscape:label="Retinexformer" stroke="#3b82f6" fill="#3b82f6" stroke-width="1.7">
+      <polygon id="area-retinexformer" points="270.00,103.44 121.03,186.60 185.43,351.40 350.43,345.71 407.67,190.27" fill-opacity="0.10"/>
+      <g id="points-retinexformer">
+        <circle cx="270.00" cy="103.44" r="2.4"/><circle cx="121.03" cy="186.60" r="2.4"/>
+        <circle cx="185.43" cy="351.40" r="2.4"/><circle cx="350.43" cy="345.71" r="2.4"/>
+        <circle cx="407.67" cy="190.27" r="2.4"/>
+      </g>
+    </g>
+
+    <g id="series-uhdformer" inkscape:label="UHDFormer" stroke="#8b5cf6" fill="#8b5cf6" stroke-width="1.7">
+      <polygon id="area-uhdformer" points="270.00,121.48 159.11,198.97 211.55,315.45 337.24,327.55 383.82,198.02" fill-opacity="0.10"/>
+      <g id="points-uhdformer">
+        <circle cx="270.00" cy="121.48" r="2.4"/><circle cx="159.11" cy="198.97" r="2.4"/>
+        <circle cx="211.55" cy="315.45" r="2.4"/><circle cx="337.24" cy="327.55" r="2.4"/>
+        <circle cx="383.82" cy="198.02" r="2.4"/>
+      </g>
+    </g>
+
+    <g id="series-diff-retinex-plus-plus" inkscape:label="Diff-Retinex++" stroke="#14b8a6" fill="#14b8a6" stroke-width="1.7">
+      <polygon id="area-diff-retinex-plus-plus" points="270.00,127.64 163.29,200.33 212.07,314.74 333.62,322.57 365.83,203.86" fill-opacity="0.10"/>
+      <g id="points-diff-retinex-plus-plus">
+        <circle cx="270.00" cy="127.64" r="2.4"/><circle cx="163.29" cy="200.33" r="2.4"/>
+        <circle cx="212.07" cy="314.74" r="2.4"/><circle cx="333.62" cy="322.57" r="2.4"/>
+        <circle cx="365.83" cy="203.86" r="2.4"/>
+      </g>
+    </g>
+
+    <g id="series-cwnet" inkscape:label="CWNet" stroke="#6b7280" fill="#6b7280" stroke-width="1.7">
+      <polygon id="area-cwnet" points="270.00,99.48 126.89,188.50 183.62,353.89 357.67,355.67 406.42,190.67" fill-opacity="0.10"/>
+      <g id="points-cwnet">
+        <circle cx="270.00" cy="99.48" r="2.4"/><circle cx="126.89" cy="188.50" r="2.4"/>
+        <circle cx="183.62" cy="353.89" r="2.4"/><circle cx="357.67" cy="355.67" r="2.4"/>
+        <circle cx="406.42" cy="190.67" r="2.4"/>
+      </g>
+    </g>
+
+    <g id="series-ours" inkscape:label="Ours" stroke="#f59e0b" fill="#f59e0b" stroke-width="2.6">
+      <polygon id="area-ours" points="270.00,78.80 118.52,185.78 184.39,352.83 360.00,358.88 432.36,182.24" fill-opacity="0.15"/>
+      <g id="points-ours">
+        <circle cx="270.00" cy="78.80" r="3.1"/><circle cx="118.52" cy="185.78" r="3.1"/>
+        <circle cx="184.39" cy="352.83" r="3.1"/><circle cx="360.00" cy="358.88" r="3.1"/>
+        <circle cx="432.36" cy="182.24" r="3.1"/>
+      </g>
+    </g>
+  </g>
+
+  <g id="axis-labels" inkscape:groupmode="layer" inkscape:label="Axis labels"
+     fill="#111827" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="500">
+    <text id="label-dicm" x="270.00" y="20.00" text-anchor="middle" dominant-baseline="middle">DICM</text>
+    <text id="label-lime" x="65.52" y="168.56" text-anchor="end" dominant-baseline="middle">LIME</text>
+    <text id="label-mef" x="143.63" y="414.94" text-anchor="middle" dominant-baseline="middle">MEF</text>
+    <text id="label-npe" x="396.37" y="414.94" text-anchor="middle" dominant-baseline="middle">NPE</text>
+    <text id="label-vv" x="474.48" y="168.56" text-anchor="start" dominant-baseline="middle">VV</text>
+  </g>
+
+  <g id="legend" inkscape:groupmode="layer" inkscape:label="Legend"
+     font-family="Georgia, 'Times New Roman', serif" font-size="17" fill="#111827">
+    <g id="legend-quadprior" transform="translate(510 34)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#e76f51" stroke-width="2"/><circle cx="15" cy="0" r="2.7" fill="#e76f51"/><text x="38" y="0" dominant-baseline="middle">Quadprior</text>
+    </g>
+    <g id="legend-retinexformer" transform="translate(510 60)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#3b82f6" stroke-width="2"/><circle cx="15" cy="0" r="2.7" fill="#3b82f6"/><text x="38" y="0" dominant-baseline="middle">Retinexformer</text>
+    </g>
+    <g id="legend-uhdformer" transform="translate(510 86)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#8b5cf6" stroke-width="2"/><circle cx="15" cy="0" r="2.7" fill="#8b5cf6"/><text x="38" y="0" dominant-baseline="middle">UHDFormer</text>
+    </g>
+    <g id="legend-diff-retinex-plus-plus" transform="translate(510 112)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#14b8a6" stroke-width="2"/><circle cx="15" cy="0" r="2.7" fill="#14b8a6"/><text x="38" y="0" dominant-baseline="middle">Diff-Retinex++</text>
+    </g>
+    <g id="legend-cwnet" transform="translate(510 138)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#6b7280" stroke-width="2"/><circle cx="15" cy="0" r="2.7" fill="#6b7280"/><text x="38" y="0" dominant-baseline="middle">CWNet</text>
+    </g>
+    <g id="legend-ours" transform="translate(510 164)" font-weight="500">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#f59e0b" stroke-width="2.6"/><circle cx="15" cy="0" r="3.1" fill="#f59e0b"/><text x="38" y="0" dominant-baseline="middle">Ours</text>
+    </g>
+  </g>
+
+  <text id="scale-label" x="704" y="454" text-anchor="end"
+        fill="#6b7280" font-family="Georgia, 'Times New Roman', serif" font-size="13">0–4</text>
+</svg>
