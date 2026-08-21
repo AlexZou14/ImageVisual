@@ -199,24 +199,6 @@ async function annotateOriginalImage(
       Math.max(1, right - left),
       Math.max(1, bottom - top),
     );
-
-    const label = `${index + 1}`;
-    const fontSize = clamp(
-      Math.round(lineWidth * 3),
-      14,
-      Math.max(14, Math.round(Math.min(image.naturalWidth, image.naturalHeight) * 0.05)),
-    );
-    const padding = Math.max(3, Math.round(fontSize * 0.28));
-    context.font = `600 ${fontSize}px ui-sans-serif, sans-serif`;
-    const labelWidth = Math.ceil(context.measureText(label).width + padding * 2);
-    const labelHeight = fontSize + padding * 2;
-    const labelX = clamp(left, 0, Math.max(0, image.naturalWidth - labelWidth));
-    const labelY = clamp(top, 0, Math.max(0, image.naturalHeight - labelHeight));
-    context.fillStyle = color;
-    context.fillRect(labelX, labelY, labelWidth, labelHeight);
-    context.fillStyle = "#ffffff";
-    context.textBaseline = "top";
-    context.fillText(label, labelX + padding, labelY + padding);
     context.restore();
   });
 
